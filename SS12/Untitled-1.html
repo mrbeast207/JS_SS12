@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <script>
+    "use strict";
+
+    const AGE_MIN = 16;
+    const AGE_MAX = 60;
+    const GPA_MIN = 0;
+    const GPA_MAX = 10;
+    const PAGE_SIZE_DEFAULT = 5;
+
+    let students = seedStudents();
+
+    function cleanString(str) {
+      return String(str ?? "").trim().replace(/\s+/g, " ");
+    }
+
+    function getStudentById(id) {
+      return students.find(st => st.id === cleanString(id)) || null;
+    }
+
+    function isIdExists(id) {
+      return students.some(st => st.id === cleanString(id));
+    }
+
+    function showStudents(list, title = "STUDENTS") {
+      console.log(`\n===== ${title} (Total: ${list.length}) =====`);
+      console.table(list.map(st => ({
+        id: st.id,
+        name: st.name,
+        age: st.age,
+        gpa: st.gpa,
+        status: st.status
+      })));
+    }
+
+    function createStudent() {
+      let id;
+      do {
+        id = cleanString(prompt("Nhập ID (duy nhất):"));
+      } while (!id || isIdExists(id));
+
+      let name = cleanString(prompt("Nhập tên:"));
+      let age = Number(prompt("Nhập tuổi:"));
+      let gpa = Number(prompt("Nhập GPA:"));
+      let status = cleanString(prompt("Nhập status (active/inactive):")).toLowerCase();
+
+      if (!name || age < AGE_MIN || age > AGE_MAX ||
+        gpa < GPA_MIN || gpa > GPA_MAX ||
+        (status !== "active" && status !== "inactive")) {
+        alert("Dữ liệu không hợp lệ");
+        return;
+      }
+
+      students.push({
+        id,
+        name,
+        age,
+        gpa: Math.round(gpa * 100) / 100,
+        status,
+        createdAt: Date.now(),
+        updatedAt: null,
+        deletedAt: null
+      });
+
+      alert("Thêm thành công");
+    }
+
+    function updateStudent() {
+      const id = prompt("Nhập ID cần cập nhật:");
+      const st = getStudentById(id);
+      if (!st) return alert("Không tìm thấy");
+
+      const name = cleanString(prompt("Tên mới (Enter để giữ nguyên):"));
+      const age = prompt("Tuổi mới (Enter để giữ nguyên):");
+      const gpa = prompt("GPA mới (Enter để giữ nguyên):");
+      const status = cleanString(prompt("Status mới (Enter để giữ nguyên):")).toLowerCase();
+
+      if (name) st.name = name;
+      if (age) st.age = Number(age);
+      if (gpa) st.gpa = Math.round(Number(gpa) * 100) / 100;
+      if (status === "active" || status === "inactive") st.status = status;
+
+      st.updatedAt = Date.now();
+
+      alert("Cập nhật thành công");
+    }
+
+    function softDelete() {
+      const id = prompt("Nhập ID cần xóa mềm:");
+      const st = getStudentById(id);
+      if (!st) return alert("Không tìm thấy");
+
+      if (confirm("Xác nhận soft delete?")) {
+        st.status = "inactive";
+        st.deletedAt = Date.now();
+        st.updatedAt = Date.now();
+        alert("Đã soft delete");
+      }
+    }
+
+    function restoreStudent() {
+      const id = prompt("Nhập ID cần restore:");
+      const st = getStudentById(id);
+      if (!st) return alert("Không tìm thấy");
+
+      if (st.deletedAt === null) {
+        return alert("Sinh viên chưa bị soft delete");
+      }
+
+      st.status = "active";
+      st.deletedAt = null;
+      st.updatedAt = Date.now();
+      alert("Restore thành công");
+    }
+
+    function viewStudents() {
+      let list = [...students];
+
+      const keyword = cleanString(prompt("Search tên (Enter bỏ qua):")).toLowerCase();
+      if (keyword) {
+        list = list.filter(st => st.name.toLowerCase().includes(keyword));
+      }
+
+      const status = cleanString(prompt("Filter status (all/active/inactive):")).toLowerCase();
+      if (status === "active" || status === "inactive") {
+        list = list.filter(st => st.status === status);
+      }
+
+      const order = cleanString(prompt("Sort GPA (asc/desc):")).toLowerCase();
+      list.sort((a, b) => order === "asc" ? a.gpa - b.gpa : b.gpa - a.gpa);
+
+      let page = 1;
+      const totalPages = Math.max(1, Math.ceil(list.length / PAGE_SIZE_DEFAULT));
+
+      while (true) {
+        const start = (page - 1) * PAGE_SIZE_DEFAULT;
+        const end = start + PAGE_SIZE_DEFAULT;
+        showStudents(list.slice(start, end), `Page ${page}/${totalPages}`);
+
+        const cmd = prompt("next | prev | exit");
+        if (cmd === "next" && page < totalPages) page++;
+        else if (cmd === "prev" && page > 1) page--;
+        else break;
+      }
+    }
+
+    function analytics() {
+      if (students.length === 0) return alert("Không có dữ liệu");
+
+      const total = students.length;
+      const active = students.filter(s => s.status === "active").length;
+      const inactive = students.filter(s => s.status === "inactive").length;
+
+      const avgGpa = students.reduce((sum, s) => sum + s.gpa, 0) / total;
+
+      const top5 = [...students]
+        .sort((a, b) => b.gpa - a.gpa)
+        .slice(0, 5);
+
+      console.log("\nANALYTICS");
+      console.log("Tổng:", total);
+      console.log("Active:", active);
+      console.log("Inactive:", inactive);
+      console.log("GPA trung bình:", avgGpa.toFixed(2));
+
+      showStudents(top5, "TOP 5 GPA");
+
+      alert("Đã in thống kê ra console");
+    }
+
+    function menu() {
+      let choice;
+      do {
+        choice = prompt(`
+1. Create
+2. Update
+3. Soft Delete
+4. Restore
+5. View
+6. Analytics
+7. Read All
+0. Exit
+    `);
+
+        switch (choice) {
+          case "1": createStudent(); break;
+          case "2": updateStudent(); break;
+          case "3": softDelete(); break;
+          case "4": restoreStudent(); break;
+          case "5": viewStudents(); break;
+          case "6": analytics(); break;
+          case "7": showStudents(students, "ALL STUDENTS"); break;
+        }
+
+      } while (choice !== "0");
+    }
+
+    function seedStudents() {
+      return [
+        { id: "S01", name: "Nguyen Van A", age: 19, gpa: 8.9, status: "active", createdAt: Date.now(), updatedAt: null, deletedAt: null },
+        { id: "S02", name: "Tran Thi B", age: 18, gpa: 7.5, status: "active", createdAt: Date.now(), updatedAt: null, deletedAt: null },
+        { id: "S03", name: "Le Van C", age: 21, gpa: 6.2, status: "active", createdAt: Date.now(), updatedAt: null, deletedAt: null },
+        { id: "S04", name: "Pham Thi D", age: 20, gpa: 0, status: "inactive", createdAt: Date.now(), updatedAt: null, deletedAt: Date.now() },
+        { id: "S05", name: "Hoang Van E", age: 22, gpa: 2.8, status: "active", createdAt: Date.now(), updatedAt: null, deletedAt: null }
+      ];
+    }
+
+    menu();
+  </script>
+</body>
+
+</html>
